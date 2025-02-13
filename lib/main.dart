@@ -1,230 +1,181 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:confetti/confetti.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const HeartBeatAnimationApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class HeartBeatAnimationApp extends StatelessWidget {
+  const HeartBeatAnimationApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: "Valentine's Day Heartbeat",
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.red),
+        primarySwatch: Colors.pink,
       ),
-      home: const MyHomePage(title: 'Happy Valentines Day!'),
+      home: const MyHomePage(),
     );
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+  const MyHomePage({Key? key}) : super(key: key);
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  // Create a GlobalKey to access HeartBeatWidget's state
-  final GlobalKey<_HeartBeatWidgetState> _heartBeatKey = GlobalKey<_HeartBeatWidgetState>();
+class _MyHomePageState extends State<MyHomePage>
+    with TickerProviderStateMixin {
+  late final AnimationController _heartbeatController;
+  late final Animation<double> _heartbeatAnimation;
+
   Timer? _timer;
-  int _timePassed = 0;
+  int _countdown = 10;
 
-  void _toggleAnimationAndTimer() {
-    final currentlyAnimating = _heartBeatKey.currentState?.isAnimating ?? false;
-    _heartBeatKey.currentState?.toggleAnimation();
+  late final ConfettiController _confettiController;
 
-    if (!currentlyAnimating) {
-      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        setState(() {
-          _timePassed++;
-        });
-      });
-    } else {
-      _timer?.cancel();
-      _timer = null;
-      setState(() {
-        _timePassed = 0;
-      });
-    }
-  }
+  late final AnimationController _textFadeController;
+  late final Animation<double> _textFadeAnimation;
+  String _selectedGreeting = "";
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-
-  @override
-  Widget build(BuildContext context) {
-    final isAnimating = _heartBeatKey.currentState?.isAnimating ?? false;
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.red,
-        title: Text(widget.title),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: FloatingActionButton.extended(
-              label: Text(isAnimating? 'Stop Animation' : 'Start Animation'),
-              icon: Icon(isAnimating? Icons.pause : Icons.play_arrow),
-              onPressed: () {
-                _toggleAnimationAndTimer();
-                setState(() {});
-              },
-            ),
-          )
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        labelText: 'Enter a message',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FloatingActionButton.extended(
-                    onPressed: () {},
-                    label: const Text("Enter"),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Center(
-                  child: HeartBeatWidget(key: _heartBeatKey),
-                ),
-              ),
-              const SizedBox(height: 16,),
-              Expanded(
-                child: Text(
-                  '$_timePassed',
-                  style: TextStyle(
-                    fontSize: 50,
-                  ),
-                ),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class HeartBeatWidget extends StatefulWidget {
-  const HeartBeatWidget({super.key});
-
-  @override
-  _HeartBeatWidgetState createState() => _HeartBeatWidgetState();
-}
-
-class _HeartBeatWidgetState extends State<HeartBeatWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  bool _isAnimating = false;
-  bool get isAnimating => _isAnimating;
+  final List<String> greetings = const [
+    "Happy Valentine's Day!",
+    "Love is in the air!",
+    "Be my Valentine!",
+    "You are loved!",
+  ];
 
   @override
   void initState() {
     super.initState();
 
-    // Initialize the controller with a duration of 1 second.
-    _controller = AnimationController(
+    _heartbeatController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 1),
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+
+    _heartbeatAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _heartbeatController, curve: Curves.easeInOut),
     );
 
-    // Define the scale animation from 1.0 to 1.3.
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  // Public method to toggle the animation.
-  void toggleAnimation() {
-    if (!_isAnimating) {
-      // Start the animation with a repeating cycle (reverse creates the pulsing effect)
-      _controller.repeat(reverse: true);
-    } else {
-      // Stop the animation and reset the value.
-      _controller.stop();
-      _controller.reset();
-    }
-    setState(() {
-      _isAnimating = !_isAnimating;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdown > 0) {
+        setState(() {
+          _countdown--;
+        });
+      } else {
+        _timer?.cancel();
+        _heartbeatController.stop();
+        _confettiController.stop();
+      }
     });
+
+    _confettiController =
+        ConfettiController(duration: const Duration(seconds: 10));
+    _confettiController.play();
+
+    _textFadeController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2));
+    _textFadeAnimation =
+        Tween<double>(begin: 0.0, end: 1.0).animate(_textFadeController);
   }
-
-
 
   @override
   void dispose() {
-    _controller.dispose();
+    _heartbeatController.dispose();
+    _timer?.cancel();
+    _confettiController.dispose();
+    _textFadeController.dispose();
     super.dispose();
+  }
+
+  void _onGreetingSelected(String message) {
+    setState(() {
+      _selectedGreeting = message;
+    });
+    _textFadeController.forward(from: 0.0);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Use AnimatedBuilder to rebuild when the animation changes.
-    return AnimatedBuilder(
-      animation: _scaleAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: CustomPaint(
-            size: const Size(100, 100),
-            painter: HeartPainter(),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Valentine's Day Heartbeat"),
+      ),
+      body: Stack(
+        alignment: Alignment.center,
+        children: [
+          ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: true,
+            colors: const [Colors.red, Colors.pink, Colors.white, Colors.purple],
           ),
-        );
-      },
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Countdown: $_countdown",
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ScaleTransition(
+                scale: _heartbeatAnimation,
+                child: const Icon(
+                  Icons.favorite,
+                  color: Colors.red,
+                  size: 100,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FadeTransition(
+                opacity: _textFadeAnimation,
+                child: Text(
+                  _selectedGreeting,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.pink,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Padding(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  alignment: WrapAlignment.center,
+                  children: greetings
+                      .map(
+                        (greeting) => ElevatedButton(
+                      onPressed: () => _onGreetingSelected(greeting),
+                      child: Text(
+                        greeting,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.pinkAccent,
+                      ),
+                    ),
+                  )
+                      .toList(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class HeartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    Paint fillPaint = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.fill;
 
-    Paint outlinePaint = Paint()
-      ..color = Colors.purple
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 10;
-
-    double width = size.width;
-    double height = size.height;
-
-    Path path = Path();
-    path.moveTo(width / 2, height * 0.8);
-    path.cubicTo(-0.3 * width, height * 0.3, width * 0.2, height * -0.2,
-        width / 2, height * 0.3);
-    path.cubicTo(width * 0.8, height * -0.2, width * 1.3, height * 0.3,
-        width / 2, height * 0.8);
-
-    canvas.drawPath(path, fillPaint);
-    canvas.drawPath(path, outlinePaint);
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) {
-    return true;
-  }
-}
